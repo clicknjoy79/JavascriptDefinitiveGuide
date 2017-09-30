@@ -425,7 +425,7 @@ console.log(stddev);                // 2
 
 // reduce 에러 상황을 만들어 보자
 var error_data = [,,,3,];       // 처음 등장하는 원소가 마지막 인덱스에 있다
-// reduce(error_data, sum);        // main.js:403 Uncaught TypeError at reduce (main.js:403)
+// reduce(error_data, sum);        // range.js:403 Uncaught TypeError at reduce (range.js:403)
 
 var error_data1 = [,,,3,,];     // 에러가 발생하지 않는다.
 console.log(reduce(error_data1, sum));      // 3
