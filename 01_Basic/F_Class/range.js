@@ -145,7 +145,7 @@ Complex.prototype.equals = function(that) {
 Complex.ZERO = new Complex(0, 0);
 Complex.ONE = new Complex(1, 0);
 Complex.I = new Complex(0, 1);
-Complex._format = /^\{([^,]+),([^}]+)\}$/;
+Complex._format = /^{([^,]+),([^}]+)}$/;
 
 // 문자열을 복소수 객체로 파싱하는 static 메서드를 정의한다.
 Complex.parse = function(s) {
@@ -346,7 +346,7 @@ function enumeration(namesToValues) {   // 전달된 객체를 가지고 열거�
     enumeration.values = [];        // 열거형 객체를 저장하기 위한 배열.
 
     // 이제 구체적인 열거형 객체를 만든다.
-    for (name in namesToValues) {
+    for (var name in namesToValues) {
         var e = inherit(proto);     // 새로운 열거형 객체.
         e.name = name;              // toString: 메소드와 toJSON 메소드에서 사용될 프로퍼티 정의
         e.value = namesToValues[name];  // valueOf 메소드에서 사용할 프로퍼티 세팅.
@@ -372,6 +372,138 @@ console.log(Coin.Quarter + 3 * Coin.Nickel);        // 40
 console.log(Coin.Dime == 10);              // true
 console.log(Coin.Dime > Coin.Nickel);       // true
 console.log(String(Coin.Dime) + ":" + Coin.Dime);       // Dime:10
+
+
+// 다음은 열거형 분야의 Hello World 예제라고 한다.
+// 트럼프 카드, 덱을 구현하고 카드를 섞어서 나눠주는 메서드를 구현해보자.
+
+// 트럼트 카드를 나타내는 클래스를 정의한다.
+function Card(suit, rank) {
+    this.suit = suit;
+    this.rank = rank;
+}
+
+// 하트, 클럽, 다이아몬드, 스페이드에 대한 각 세트와 순위를 정의한다.
+Card.Suit = enumeration({Clubs: 1, Diamonds: 2, Hearts: 3, Spades: 4});
+Card.Rank = enumeration({Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9, Ten: 10,
+                         Jack: 11, Queen: 12, King: 13, Ace: 14});
+
+// 카드에 대한 텍스트 표현을 정의한다.
+Card.prototype.toString = function() {
+    return this.rank.toString() + " of " + this.suit.toString();    // ex> Two of Diamonds
+};
+
+// 포커 룰로 두 카드의 순위를 비교한다.
+Card.prototype.comparedTo = function(that) {
+    return this.rank - that.rank;
+};
+
+// 포커에서 처럼 카드를 정렬하는 함수
+Card.orderByRank = function(a, b) {
+    return a.comparedTo(b);
+};
+
+// 브릿지 룰로 두 카드를 정렬하는 함수
+Card.orderBySuit = function(a, b) {
+    if (a.suit < b.suit) return -1;       // 카드의 suit 이 크면 뒤로 간다.
+    if (a.suit > b.suit) return 1;        // 카드의 suit 이 작으면 앞으로 간다.
+    if (a.rank < b.rank) return -1;       // 카드의 suit 이 동일하면 rank로 비교한다.
+    if (a.rank > b.rank) return 1;
+    return 0;       // 교재에 있지만 실제로 실행되는 구문인지 의문이다.
+};
+
+// 일반적인 트럼프 한 벌을 나타내는 클래스를 정의한다.
+function Deck() {
+    var cards = this.cards = [];        // 카드 한벌을 담을 배열을 선언한다.
+    Card.Suit.foreach(function(s) {         // 카드 suit 열거형 객체들에 대해 함수를 호출한다.
+        Card.Rank.foreach(function(r) {     // 카드 rank 열거형 객체들에 대해 함수를 호출한다. 중첩 반복문이다. 내부 함수를 선언했기 때문에 외부의 지역변수인 s를 클로저로서 기억한다.
+            cards.push(new Card(s, r));     // 모든 카드 한 벌을 세팅한다. cards 변수는 함수 체이닝에 의해 접근 가능하다.
+        });
+    });
+}
+
+// 섞기(shuffle) 메서드: 해당 트럼프 한 벌 내의 카드를 무작위로 섞는다.
+Deck.prototype.shuffle = function() {
+    // 배열의 각 요소에 대해, 해당 요소의 인덱스를 포함한 앞의 요소 중 아무 요소나 선택하여 바꾼다.
+    var deck = this.cards, len = deck.length;
+    for (var i = len - 1; i > 0; i--) {
+        var r = Math.floor(Math.random() * (i + 1)), temp;      // r: 랜덤 인덱스
+        temp = deck[i], deck[i] = deck[r], deck[r] = temp;      // 바꾼다.
+    }
+    return this;        // 섞은 덱을 반환.
+};
+
+// 카드를 분배(Deal)하는 메서드: 카드 배열을 반환한다.
+Deck.prototype.deal = function(n) {     // n: 분배할 카드 수
+    if (this.cards.length < n) throw "Out of cards";
+    return this.cards.splice(this.cards.length - n, n);     // 실제로 분배되는 카드 배열을 리턴. 원본 카드 배열도 감소한다.
+};
+
+// 테스트 해보자. 트럼프 한 벌을 만들고 섞은 다음, 카드를 분배한다.
+var deck = (new Deck()).shuffle();      // 만들고 한번 섞음.
+console.log(deck);                      // Deck {cards: Array(52)}: 52 장의 카드가 만들어 졌다.
+var hand = deck.deal(13).sort(Card.orderBySuit);        // 13장을 분배한 다음 정렬한다.
+console.log(hand.toString());           // 분배, 정렬된 카드가 나온다  ex> Five of Clubs,Nine of Clubs,Ten of Clubs,Queen of Clubs,Four of Diamonds,Seven of Diamonds,Queen of Diamonds,Seven of Hearts,King of Hearts,Ace of Hearts,Seven of Spades,Nine of Spades,Ten of Spades
+console.log(deck);                      // Deck {cards: Array(39)}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
