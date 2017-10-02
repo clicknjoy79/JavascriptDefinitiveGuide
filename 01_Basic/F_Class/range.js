@@ -447,37 +447,333 @@ console.log(hand.toString());           // 분배, 정렬된 카드가 나온다
 console.log(deck);                      // Deck {cards: Array(39)}
 
 
+// 객체에 대해 산술연산(+) 제외, 비교 연산 시 valueOf 를 호출한다.
+// 객체에 대해 JSON.stringify()를 호출한 경우 객체에 toJSON 메서드가 정의되어 있으면 호출한다.
+
+// 위에서 정의한 Set 클래스에 몇 가지 기본 메서드를 추가해보자.
+extend(Set.prototype, {
+    // 세트의 문자열을 반환한다.
+    toString: function() {
+        var s = "{", i = 0;
+        this.foreach(function(v) {s += ((i++ > 0) ? ", " : "") + v; });
+        return s + "}";
+    },
+    // toString() 과 비슷하지만 모든 값에 대해 toLocaleString()을 호출한다.
+    toLocaleString: function() {
+        var s = "{", i = 0;
+        this.foreach(function(v) {
+            if (i++ > 0) s += ", ";
+            if (v == null) s += v;          // null 과 undefined
+            else s += v.toLocaleString();   // 다른 모든 경우
+        });
+        return s + "}";
+    },
+    // 세트를 배열로 변환한다.
+    toArray: function() {
+        var a = [];
+        this.foreach(function (v) { a.push(v); });
+        return a;
+    }
+});
+// JSON 문자열 변환을 위해 세트를 배열처럼 취급한다.
+Set.prototype.toJSON = Set.prototype.toArray;
+// s는 위에서 미리 정의한 세트
+console.log(s.toString());          // {10, Cat, function () {}, [object Object]}
+console.log(s.toLocaleString());    // {10, Cat, function () {}, [object Object]}
+console.log(s.toArray());           // Array [ 10, "Cat", f_1(), Object ]
+console.log(s.toJSON());            // Array [ 10, "Cat", f_1(), Object ]
+
+
+// 객체 사이의 동치 연산자.(==)
+// Range 클래스는 prototype을 재정의 하면서 constructor 프로퍼티를
+// 정의하지 않았기 때문에, 여기서 constructor프로퍼티를 추가하자.
+Range.prototype.constructor = Range;
+
+// Range는 from, to 가 같다면 같은 객체이다.
+Range.prototype.equals = function(that) {
+    if (that == null) return false;     // null == null, null == undefined  ===> 모두 true를 반환한다.
+    if (that.constructor !== Range) return false;       // Range 타입이 아니면 제외
+    // 시작점과 끝점이 같은 때만 같은 객체로 취급한다.
+    return this.from === that.from && this.to === that.to;
+};
+
+// Set클래스에 equals() 메서드를 정의하는 것은 약간의 요령이 필요하다.
+// 좀 더 깊은 단계의 비교까지 해야 한다.
+Set.prototype.equals = function(that) {
+    // 단순한 경우
+    if (this === that) return true;
+    // 만약 주어진 객체가 Set이 아니라면 이 객체와 같지 않다.
+    if (!(that instanceof Set)) return false;
+
+    // 두 Set의 크기가 다르면 같지 않다.
+    if (this.size() !== that.size()) return false;
+
+    // 두 객체의 모든 요소가 다른 객체에도 있는 지 검사한다.
+    // 두 Set이 다르면 foreach()를 벗어나도록 예외를 사용한다.
+    try {
+        this.foreach(function(v) { if (!that.contains(Set._v2s(v))) throw false; });  // 이 객체의 요소가 다른 객체에는 없음.
+        return true;
+    } catch (e) {
+        if (e === false) return false;
+        throw e;
+    }
+};
+
+/**
+ * 시작값에 따라 range 인스턴스를 정렬하고, 만약 시작값이 같으면 끝 값에 따라 정렬한다.
+ * 만약 Range 가 아닌 값이 전달되면 예외를 발생시킨다.
+ * 오직 this.equals(that)일 때만 0을 반환한다.
+ */
+Range.prototype.compareTo = function(that) {
+    if (!(that instanceof Range))
+        throw new Error("Can't compare a Range with " + that);
+    var diff = this.from - that.from;       // 시작 값을 비교한다.
+    if (diff === 0) diff = this.to - that.to;       // 시작값이 같으면 끝 값을 비교한다.
+    return diff;
+};
+
+// 다른 객체가 빌려 쓸 수 있도록 일반화된 메서드
+var generic = {
+    // 상속받은 프로퍼티와 함수를 제외한 모든 프로퍼티의 이름과 값을 포함한 문자열을 반환한다.
+    // 가능하다면 생성자 함수의 이름도 포함한다.
+    toString: function() {
+        var s = "[";
+        // 만약 객체가 생성자를 가지고 있고, 생성자에 이름이 지정되어 있다면,
+        // 생성자 이름(클래스 이름)을 반환될 문자열에 추가한다.
+        // 함수의 name 프로퍼티는 비표준이고, 따라서 모든 인터프리터가
+        // name 프로퍼티를 지원하지는 않음을 유념하라.
+        if (this.constructor && this.constructor.name)
+            s += this.constructor.name + ": ";
+
+        // 상속되지 않은 프로퍼티와 함수가 아닌 프로퍼티 모두를 열거한다.
+        var n = 0;
+        for (var name in this) {
+            if (!this.hasOwnProperty(name)) continue;       // 상속된 값은 건너뛴다.
+            var value = this[name];
+            if (typeof value === "function") continue;      // 메서드도 건너뛴다.
+            if (n++) s += ", ";
+            s += name + "=" + value;
+        }
+        return s + "]";
+    },
+    // this와 that의 constructor 프로퍼티와 instance 프롤퍼티를 비교함으로써
+    // this와 that이 같은지를 검사한다. 인스턴스의 프로퍼티가 === 연산자를 통해 비교될 수
+    // 있는 경우에만 작동한다.
+    // === 연산자로 비교하려면 해당 객체가 원시 값을 반환해야 한다. (valueOf 메서드가 존재해야)
+    // 특수한 경우로 Set 클래스가 추가한 프로퍼티는 무시한다.
+    equals: function(that) {
+        if (that == null) return false;
+        if (this.constructor !== that.constructor) return false;
+        for (var name in this) {
+            if (name === "|**objectid**|") continue;        // 특정 프로퍼티는 건너뛴다.
+            if (!this.hasOwnProperty(name)) continue;       // 상속받은 프로퍼티는 건너뛴다.
+            if (this[name] !== that[name]) return false;    // 값들을 비교한다.
+        }
+        return true;        // 모든 프로퍼티의 값이 같으면, 두 객체는 같다.
+    }
+};
+
+// private 상태
+function Range2(from, to) {
+    // this 객체의 프로퍼티로 from, to를 지정하지 말 것.
+    // 대신에 시작점과 끝점을 반환하는 접근자 함수를 지정한다.
+    // 인자로 넘어온 from, to 값은 클로저에 저장된다.
+    this.from = function() { return from; };
+    this.to = function() { return to; };
+}
+
+// 프로토 타입의 메서드들은 생성자에 인자로 전달된 from, to를 직접 볼 수 없다.
+Range2.prototype = {
+    constructor: Range2,
+    include: function(x) { return this.from() <= x && this.to() >= x; },
+    foreach: function(f) {
+        for (var x = Math.ceil(this.from()); x <= this.to(); x++) f(x);
+    },
+    toString: function() { return "(" + this.from() + "..." + this.to() + ")"; }
+};
+
+var r = new Range2(1, 5);
+r.from = function() { return 0; };      // 메서드 교체
+r.foreach(console.log);     // 0  1  2  3  4  5
 
 
 
 
+// 서브클래스 정의 유틸리티(서브 클래스를 정의하는 팩토리 메서드)
+function defineSubclass(superclass,     // 슈퍼클래스 생성자
+                        constructor,    // 서브 클래스 생성자
+                        methods,        // 인스턴스 메서드
+                        statics) {       // 클래스 프로퍼티
+    // 서브 클래스의 프로토타입 객체를 설정한다. 이미 공부한 내용임.
+    constructor.prototype = inherit(superclass.prototype);
+    constructor.prototype.constructor = constructor;
+    // 메서드와 정적 값들을 복사한다.
+    if (methods) extend(constructor.prototype, methods);
+    if (statics) extend(constructor, statics);
+    // 서브 클래스를 반환.
+    return constructor;
+}
+
+// 또한, 수퍼클래스 생성자 메서드로 서브클래스를 생성할 수 있다.
+Function.prototype.extend = function(constructor, methods, statics) {
+    return defineSubclass(this, constructor, methods, statics);
+};
 
 
+// defineSubclass() 함수를 사용하지 않고 직접 서브 클래스 작성
+function SingletonSet(member) {
+    this.member = member;
+}
+
+SingletonSet.prototype = inherit(Set.prototype);
+
+// 프로토 타입에 프로퍼티를 추가한다.
+// 이 프로퍼티들은 Set.prototype에 있는 프로퍼티들을 재정의 한다.
+extend(SingletonSet.prototype, {
+    // constructor 재설정
+    constructor: SingletonSet,
+    // 이 세트는 읽기 전용이다. add() 와 remove()는 에러를 발생시킨다.
+    add: function() { throw "read-only set"; },
+    remove: function() { throw "read-only set"; },
+    // SingletonSet의 크기는 언제나 1이다.
+    size: function() { return 1; },
+    // 멤버가 하나만 있기 때문에 함수를 한 번만 호출하면 된다.
+    foreach: function(f, context) { f.call(context, this.member); },
+    // contains 메서드는 한 가지 값에 대해서만 참이다.
+    contains: function(x) { return x === this.member; }
+});
+
+SingletonSet.prototype.equals = function(that) {
+    return that instanceof Set && that.size() === 1 && that.contains(this.member);
+};
+
+var ss = new Set("Cat");
+var sts = new SingletonSet("Cat");
+console.log(sts.equals(ss));        // true
+// sts.add("Dog");                     // read-only set
+
+// 수퍼클래스로의 생성자 체이닝과 메서드 체이닝
+/**
+ * NonNullSet은 null과 undefined를 멤버로 허용하지 않는 Set의 서브클래스다.
+ */
+function NonNullSet() {
+    // NonNullSet을 위한 별도의 동작없이, 단지 슈퍼클래스의 생성자를 체이닝 한다.
+    Set.apply(this, arguments);
+}
+
+// Set의 서브클래스인 NonNullSet을 만든다.
+NonNullSet.prototype = inherit(Set.prototype);
+NonNullSet.prototype.constructor = NonNullSet;
+
+// null과 undefined를 제외하려면 add() 메서드만 재정의하면 된다.
+NonNullSet.prototype.add = function() {
+    // 인자가 null 또는 undefined 인지 여부를 검사한다.
+    for (var i = 0; i < arguments.length; i++) {
+        if (arguments[i] == null)
+            throw new Error("null 또는 undefined는 NonNullSet에 추가할 수 없습니다.");
+        // 실제 멤버 삽입은 슈퍼클래스의 메서드를 체이닝하여 수행한다.
+        return Set.prototype.add.apply(this, arguments);
+    }
+};
+// new NonNullSet(null);           // null 또는 undefined 는 NonNullSet에 추가할 수 없습니다.
+
+// 특별한 원소만을 추가할 수 있는 서브 클래스를 만들어 보자.
+// 문자열만 저장하는 Set의 서브 클래스
+var StringSet = filteredSetSubclass(Set, function(x) { return typeof x === "string"; });
+// null, undefined 그리고 함수를 허용하지 않는 Set의 클래스를 정의.
+var MySet = filteredSetSubclass(NonNullSet, function(x) { return typeof x !== "function"; });
+
+/**
+ * 생성자 체이닝과 메서드 체이닝을 사용하는 클래스 팩토리 함수를 정의한다.
+ * 이 함수는 Set의 서브클래스의 add() 메서드에 지정된 필터를 적용하여
+ * 재정의된 클래스를 반환한다.
+ */
+function filteredSetSubclass(superclass, filter) {
+    var constructor = function() {              // 서브클래스 생성자
+        superclass.apply(this, arguments);      // 슈퍼클래스 생성자를 체이닝 한다.
+    };
+
+    var proto = constructor.prototype = inherit(superclass.prototype);
+    proto.constructor = constructor;
+    proto.add = function() {
+        // 값을 추가하기 전에 모든 인자에 대해 필터를 적용한다.
+        for (var i = 0; i < arguments.length; i++) {
+            var v = arguments[i];
+            if (!filter(v)) throw ("value " + v + " rejected by filter");
+        }
+        superclass.prototype.add.apply(this, arguments);
+    }
+    return constructor;
+}
+// new StringSet(1);            // value 1 rejected by filter
+// new MySet(function() {});       // value function () {} rejected by filter
+
+var NonNullSet = (function(){       // 함수를 정의하고 바로 호출한다.
+    var superclass = Set;           // 슈퍼클래스 : 생성자 함수
+    return superclass.extend(
+        function() { superclass.apply(this, arguments); },       // 자식 클래스: 생성자 함수
+        {                                                        // 메서드
+            add: function() {
+                // 인자의 null 또는 undefined 여부를 검사한다.
+                for (var i = 0; i < arguments.length; i++) {
+                    if (arguments[i] == null)
+                        throw new Error("null 또는 undefined는 추가할 수 없습니다.");
+                }
+                return superclass.prototype.add.apply(this, arguments);
+            }
+        }
+    );
+})();
+
+// new NonNullSet(undefined);          // null 또는 undefined는 추가할 수 없습니다.
 
 
+// 사실 상속은 그리 좋은 방법이 아니다. 따라서 조합을 사용해보자.(DI와 유사한 방법)
+// 서브 클래스 대신에 세트 조합을 사용(즉 세트 객체를 필드에 저장한다)
+/**
+ * FilteredSet은 지정된 세트 객체를 래핑하고, 지정된 필터를 add() 메서드의 인자에 적용한다.
+ */
+var FilteredSet = Set.extend(
+    function FilteredSet(set, filter) {         // 세팅할 생성자 함수
+        this.set = set;
+        this.filter = filter;
+    },
+    {
+        // 인스턴스 메서드
+        add: function() {
+            // 필터가 설정되었다면 적용한다.
+            if (this.filter) {
+                for (var i = 0; i < arguments.length; i++) {
+                    var v = arguments[i];
+                    if (!this.filter(v))
+                        throw new Error("FilterSet: value " + v + " rejected by filter");
+                }
+            }
+            this.set.add.apply(this.set, arguments);
+            return this;
+        },
+        // 나머지 메서드들은 this.set으로 요청을 전달하기만 하고
+        // 다른 행동은 하지 않는다.
+        remove: function() {
+            this.set.remove.apply(this.set, arguments);
+        },
+        contains: function(v) { return this.set.contains(v); },
+        size: function() { return this.set.size(); },
+        foreach: function(f, c) { this.set.foreach(f, c); }
+    }
+);
 
+// 테스트
+var f_set = new FilteredSet(new Set(), function(x) { return x != null ; });
+f_set.add(1, "Dog", 2);
+f_set.remove(2);
+console.log(f_set);                 // FilteredSet {set: Set, filter: ƒ} : 객체 내부 확인
+// f_set.add(undefined);           // value undefined rejected by filter
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+var f_set1 = new FilteredSet(f_set, function(x) { return !(x instanceof Set); });
+f_set1.add(2, 3);
+console.log(f_set1);                // FilteredSet {set: FilteredSet, filter: ƒ}
+// f_set1.add(new Set());              // FilterSet: value {} rejected by filter
 
 
 
