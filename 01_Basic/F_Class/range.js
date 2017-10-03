@@ -511,7 +511,7 @@ Set.prototype.equals = function(that) {
     // 두 객체의 모든 요소가 다른 객체에도 있는 지 검사한다.
     // 두 Set이 다르면 foreach()를 벗어나도록 예외를 사용한다.
     try {
-        this.foreach(function(v) { if (!that.contains(Set._v2s(v))) throw false; });  // 이 객체의 요소가 다른 객체에는 없음.
+        this.foreach(function(v) { if (!that.contains(v)) throw false; });  // 이 객체의 요소가 다른 객체에는 없음.
         return true;
     } catch (e) {
         if (e === false) return false;
@@ -775,7 +775,32 @@ f_set1.add(2, 3);
 console.log(f_set1);                // FilteredSet {set: FilteredSet, filter: ƒ}
 // f_set1.add(new Set());              // FilterSet: value {} rejected by filter
 
+// 추상 Set 클래스와 구체 Set 클래스의 계층구조를 만들어보자.
+function abstractMethod() { throw new Error("추상메서드를 호출하였습니다."); }
 
+/**
+ * 추상 클래스 AbstractSet은 하나의 추상 메서드(contains)를 가지고 있다.
+ */
+function AbstractSet() { throw new Error("추상클래스는 인스턴스화 될 수 없습니다."); }
+AbstractSet.prototype.contains = abstractMethod;
+
+/**
+ * NotSet은 AbstractSet을 구현한 클래스이다.
+ * 내부 집합에 대한 여집합을 의미하는 듯 하다. 따라서 무한한 멤버를 가지고 있다고 판단할 수 있다.
+ */
+var NotSet = AbstractSet.extend(
+    function NotSet(set) { this.set = set; },        // 이 집합에 대한 여집합을 의미한다.
+    {                                                // NotSet의 메서드
+        contains: function(x) { return !this.set.contains(x); },
+        toString: function() { return "~" + this.set.toString(); },
+        equals: function(that) { return that instanceof NotSet && this.set.equals(that.set); }
+    }
+);
+var not_set = new NotSet(new Set(1, 2, "Cat"));
+var not_set1 = new NotSet(new Set(1, 2, "Cat"));
+console.log(not_set.contains(1));           // false
+console.log(not_set.toString());            // ~{1, 2, Cat}
+console.log(not_set.equals(not_set1));      // true
 
 
 
