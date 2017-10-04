@@ -785,7 +785,7 @@ function AbstractSet() { throw new Error("추상클래스는 인스턴스화 될
 AbstractSet.prototype.contains = abstractMethod;
 
 /**
- * NotSet은 AbstractSet을 구현한 클래스이다.
+ * NotSet은 AbstractSet을 구현한 클래스이다. 원소가 무한하다.
  * 내부 집합에 대한 여집합을 의미하는 듯 하다. 따라서 무한한 멤버를 가지고 있다고 판단할 수 있다.
  */
 var NotSet = AbstractSet.extend(
@@ -802,7 +802,180 @@ console.log(not_set.contains(1));           // false
 console.log(not_set.toString());            // ~{1, 2, Cat}
 console.log(not_set.equals(not_set1));      // true
 
+/**
+ * AbstractEnumerableSet은 AbstractSet의 추상 서브 클래스다. 원소가 유한하다는 의미.
+ * 이 클래스는 추상 메서드 size(), foreach()를 정의하고,
+ * 구체 메서드인 isEmpty(), toArray(), to[Locale]String(), equals()를 정의한다. ==> 5개
+ * 이 클래스의 서브클래스에서 contains(), size(), foreach()를 구현할 때,
+ * 이 다섯가지 구체 메서드를 바로 사용할 수 있다.
+ */
+var AbstractEnumerableSet = AbstractSet.extend(
+    function() { throw new Error("추상 클래스는 인스턴스화 할 수 없습니다."); },     // 직접 인스턴화 되지 않으므로 함수 이름을 부여할 필요가 없다.
+    {
+        size: abstractMethod,
+        foreach: abstractMethod,
+        isEmpty: function() { return this.size() === 0; },
+        toString: function() {
+            var s = "{", i = 0;
+            this.foreach(function(v) {
+                if (i++) s += ", ";
+                s += v;
+            });
+            return s + "}";
+        },
+        toLocaleString: function() {
+            var s = "{", i = 0;
+            this.foreach(function(v) {
+                if (i++) s += ", ";
+                if (v == null) s += v;          // null & undefined 인 경우.
+                else s += v.toLocaleString();   // 이 외의 경우.
+            });
+            return s + "}";
+        },
+        toArray: function() {
+            var a = [];
+            this.foreach(function(v) { a.push(v); });
+            return a;
+        },
+        equals: function(that) {
+            if (!(that instanceof AbstractEnumerableSet)) return false;
+            if (this.size() !== that.size()) return false;
+            // this의 요소가 that에도 있는 지 검사한다.
+            try {
+                this.foreach(function(v) { if (!that.contains(v)) throw false; });
+                return true;
+            } catch(e) {
+                if (e === false) return false;      // 두 집합은 다르다.
+                throw e;                            // 다른 예외가 발생한 경우
+            }
+        }
+    }
+);
 
+/**
+ * SingletonSet은 AbstractEnumerableSet의 구체 서브클래스다.
+ * SingletonSet 인스턴스는 하나의 멤버만 가진 읽기 전용 세트다.
+ */
+var SingletonSet = AbstractEnumerableSet.extend(
+    function SingletonSet(member) { this.member = member; },
+    {
+        contains: function(x) { return x === this.member; },
+        size: function() { return 1; },
+        foreach: function(f, ctx) { f.call(ctx, this.member); }
+    }
+);
+var s_set = new SingletonSet("Banana");
+console.log(s_set.contains("Banana"));      // true
+console.log(s_set.size());                  // 1
+console.log(s_set.equals(new SingletonSet("Banana")));      // true
+s_set.foreach(console.log);                                 // Banana
+console.log(s_set.toString());                              // {Banana}
+
+/***************************************************************************************
+ * AbstractWritableSet은 AbstractEnumerableSet의 추상 서브클래스이다.
+ * 이 클래스는 추상 메서드 add(), remove()를 정의하고,
+ * 이 추상 메서드들을 사용하는 구체 메서드 union(), intersection(), difference()를 구현한다.
+ * 교재의 코드는 버그가 있어서 remove() 메서드와 intersection() 메서드를 수정하였다.
+ ***************************************************************************************/
+var AbstractWritableSet = AbstractEnumerableSet.extend(
+    function() { throw new Error("추상 클래스는 인스턴스화 할 수 없습니다."); },
+    {
+        add: abstractMethod,
+        remove: abstractMethod,
+        union: function(that) {             // 합집합
+            var self = this;
+            that.foreach(function(v) { self.add(v); });
+            return this;
+        },
+        intersection: function(that) {      // 교집합
+            var self = this;
+            this.foreach(function(v) { if(!that.contains(v)) self.remove(v); });
+            this.values = this.values.filter(function(v) { return v !== "deleted"; });
+            return this;
+        },
+        difference: function(that) {        // 차집합
+            var self = this;
+            that.foreach(function(v) { self.remove(v); });
+            this.values = this.values.filter(function(v) { return v !== "deleted"; });
+            return this;
+        }
+    }
+);
+
+/**
+ * ArraySet은 AbstractWritableSet의 구체 서브클래스다.
+ * 이 클래스는 집합의 원소를 배열로 나타내고, contains() 메서드는 배열에 대해서 선형 검색을 한다.
+ * 이 클래스의 구현은 ECMAScript 5의 Array 메서드인 indexOf(), forEach() 에 의존하고 있다.
+ */
+var ArraySet = AbstractWritableSet.extend(
+    function ArraySet() {
+        this.values = [];
+        this.add.apply(this, arguments);
+    },
+    {
+        contains: function(v) { return this.values.indexOf(v) !== -1; },
+        size: function() { return this.values.length; },
+        foreach: function(f, c) { this.values.forEach(f, c); },
+        add: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                var arg = arguments[i];
+                if (!(this.contains(arg))) this.values.push(arg);
+            }
+            return this;
+        },
+        remove: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                var idx = this.values.indexOf(arguments[i]);
+                if (idx !== -1)
+                    // this.values.splice(idx, 1);  책에는 이렇게 구현하였으만 이러면 버그가 발생한다.
+                    this.values[idx] = "deleted";
+            }
+            return this;
+        }
+    }
+);
+var array_set1 = new ArraySet("Banana", "Grape", "Orange", "Apple");
+var array_set2 = new ArraySet("Mango", "Papaya", "Berry", "Apple");
+var union_set = array_set1.union(array_set2);
+console.log(union_set);     // ArraySet {values: Array(7)} : array_set1 과 동일하다.
+console.log(array_set1.intersection(new ArraySet("Banana", "Orange", "Apple", "WaterMelon", "PineApple")));     // ArraySet {values: Array(3)}
+console.log(array_set1.difference(new ArraySet("Orange", "Apple")));    // ArraySet {values: Array(1)}
+
+
+// 열거되지 않는 프로퍼티 만들기
+// 코드를 함수로 둘러싸서 함수 유효범위 안에서만 변수를 정의할 수 있다.
+(function(){
+    // 모든 객체가 상속하는 objectId 프로퍼티를 정의한다. 이 프로퍼티는 읽기 전용이며 삭제할 수 없다.
+    Object.defineProperty(Object.prototype, "objectId", {
+        get: idGetter,
+        enumerable: false,      // 열거되지 않는다.
+        configurable: false     // 삭제할 수 없다.
+    });
+
+    // 이 함수는 objectId가 읽힐 때 호출되는 getter 함수이다.
+    function idGetter() {
+        if (!(idprop in this)) {        // 객체에 idprop(|**objectid**|)가 없고
+            if (!(Object.isExtensible(this)))              // 확장할 수 없는 경우
+                throw Error("Can't define id for nonextensible objects");
+            Object.defineProperty(this, idprop, {       // 확장할 수 있는 경우
+                value: nextid++,
+                writable: false,
+                enumerable: false,
+                configurable: false
+            });
+        }
+        return this[idprop];
+    }
+
+    var idprop = "|**objectid**|";
+    var nextid = 1;
+})();
+var obj1 = {x: 1};
+console.log(obj1.objectId);         // 1    객체 내부 프로퍼티 열어서 한 번 볼 것..
+var obj2 = new Date();
+console.log(obj2.objectId);         // 2
+var obj3 = [1, 2, 3];
+console.log(obj3.objectId);         // 3
 
 
 
