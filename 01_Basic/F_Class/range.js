@@ -978,20 +978,200 @@ var obj3 = [1, 2, 3];
 console.log(obj3.objectId);         // 3
 
 
+/**
+ * 읽기 전용 프로퍼티와 메서드를 가진 변경되지 않는 클래스
+ */
+function RangeClass(from, to) {                 // 읽기 전용 프로퍼티(from, to) 설정.
+    var props = {
+        from: { value: from, enumerable: true, writable: false, configurable: false },
+        to: { value: to, enumerable: true, writable: false, configurable: false }
+    };
+    if (this instanceof RangeClass)                         // 이 함수가 생성자로 호출되면
+        Object.defineProperties(this, props);
+    else                                                    // 그렇지 않으면 팩토리 함수이고
+        return Object.create(RangeClass.prototype, props);
+}
+// enumerable, writable, configurable 은 default로 false로 설정된다.
+Object.defineProperties(RangeClass.prototype, {             // 읽기 전용 메서드 설정
+    include: {
+        value: function(x) { return this.from <= x && this.to >= x; }
+    },
+    foreach: {
+        value: function(f) {
+            for (var x = Math.ceil(this.from); x <= this.to; x++) f(x);
+        }
+    },
+    toString: {
+        value: function() { return "(" + this.from + "..." + this.to + ")"; }
+    }
+});
+var range1 = RangeClass(1, 5);
+console.log(range1.include(4));         // true
+console.log(range1.include(6));         // false
+console.log(range1.toString());         // (1...5)
+range1.foreach(console.log);            // 1  2  3  4  5
+
+
+// 위의 코드들은 강력하지만 디스크립터를 사용하기 때문에 가독성이 떨어진다.
+// 미리 정의된 프로퍼티 속성을 변경할 수 있는 유틸리티 함수를 정의하자.
+/**
+ * 객체 o의 (모든 혹은 지정한) 프로퍼티들을 non-writable, non-configurable로 만든다.
+ */
+function freezeProps(o) {
+    var props = (arguments.length === 1) ?          // 인자가 하나라면
+                    Object.getOwnPropertyNames(o) : Array.prototype.splice.call(arguments, 1);
+    props.forEach(function(name) {
+        var desc = Object.getOwnPropertyDescriptor(o, name);
+        if (!desc.configurable) return;
+        else
+            Object.defineProperty(o, name, { writable: false, configurable: false });
+    })
+    return o;
+}
+
+/**
+ * 객체 o의 (모든 혹은 지정한) 프로퍼티들을 non-enumerable 로 만든다.
+ */
+function hideProps(o) {
+    var props = (arguments.length === 1) ?          // 인자가 하나라면
+        Object.getOwnPropertyNames(o) : Array.prototype.splice.call(arguments, 1);
+    props.forEach(function(name) {
+        var desc = Object.getOwnPropertyDescriptor(o, name);
+        if (!desc.configurable) return;
+        else
+            Object.defineProperty(o, name, { enumerable: false });
+    })
+    return o;
+}
+
+// 더 간단한 불변 클래스
+function RangeClass2(from, to) {
+    this.from = from;
+    this.to = to;
+    freezeProps(this);
+}
+RangeClass2.prototype = hideProps({
+    include: function(x) { return this.from <= x && this.to >= x; },
+    foreach: function(f) {
+       for (var x = Math.ceil(this.from); x <= this.to; x++) f(x);
+    },
+    toString: function() { return "(" + this.from + "..." + this.to + ")"; }
+});
+var range = new RangeClass2(1, 5);
+for (var prop in range) console.log(prop);          // from   to
+
+
+// 객체 상태를 캡슐화 하기
+function RangeCap(from, to) {
+    if (from >= to) throw new Error("Range: from must be <= to");
+    // 접근자 메서드를 정의한다. 모두 동일 클로저(from, to)를 사용한다.
+    function getFrom() { return from; }
+    function setFrom(f) {
+        if (f <= to) from = f;
+        else throw new Error("Range: from must be <= to");
+    }
+    function getTo() { return to; }
+    function setTo(t) {
+        if (t >= from) to = t;
+        else throw new Error("Range: to must be >= from");
+    }
+
+    Object.defineProperties(this, {
+        from: {
+            get: getFrom, set: setFrom, enumerable: true, configurable: false
+        },
+        to: {
+            get: getTo, set: setTo, enumerable: true, configurable: false
+        }
+    });
+}
+RangeCap.prototype = hideProps({
+    include: function(x) { return this.from <= x && this.to >= x; },
+    foreach: function(f) {
+        for (var x = Math.ceil(this.from); x <= this.to; x++) f(x);
+    },
+    toString: function() { return "(" + this.from + "..." + this.to + ")"; }
+});
+// new RangeCap(4, 2);         // Range: from must be <= to
+var r = new RangeCap(1, 5);
+console.log(r.from, r.to);      // 1   5
+r.from = 4; r.to = 7;
+console.log(r.from, r.to);      // 4   7
+console.log(r.include(5), r.include(8));        // true   false
+
+
+// StringSet: ECMAScript 5를 이용한 세트의 서브클래스
+function StringSet1() {
+    this.set = Object.create(null);     // 프로토 타입이 없는 객체를 생성.
+    this.n = 0;
+    this.add.apply(this, arguments);
+}
+StringSet1.prototype = Object.create(AbstractWritableSet.prototype, {
+    constructor: { value: constructor },
+    contains: { value: function(x) { return x in this.set; }},
+    size: { value: function() { return this.n; }},
+    foreach: { value: function(f, c) { Object.keys(this.set).forEach(f, c); }},
+    add: {
+        value: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                if (!(arguments[i] in this.set)) {
+                    this.set[arguments[i]] = true;
+                    this.n++;
+                }
+            }
+            return this;
+        }
+    },
+    remove: {
+        value: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                if (arguments[i] in this.set) {
+                    delete this.set[arguments[i]];
+                    this.n--;
+                }
+            }
+            return this;
+        }
+    }
+});
+var str_set = new StringSet1("AAA", "BBB", "CCC");
+console.log(str_set.contains("AAA"));       // true
+str_set.add("DDD");
+console.log(str_set.contains("DDD"));       // true
+str_set.remove("AAA", "BBB");
+str_set.foreach(console.log);               // CCC 0 (2) ["CCC", "DDD"]
+                                            // DDD 1 (2) ["CCC", "DDD"]
+                                            // forEach를 호출하면 배열의 값, 인덱스, 배열 자체가 함수의 인자로 전달된다.
+
+// 프로퍼티 디스크립터
+/**
+ * Object.prototype에 properties() 메서드를 정의하자. ==> 모든 객체는 properties() 메서드를 사용할 수 있다.
+ * 이 메서드는 호출 객체와 프로퍼티 정보를 담고 있는 객체(Property 객체)를 반환한다.
+ */
+(function namespace() {
+    // 이 함수는 모든 객체의 메서드가 된다.
+    function properties() {
+        var names;
+        if (arguments.length === 0) names = Object.getOwnPropertyNames(this);
+        else if (arguments.length === 1 && Array.isArray(arguments[0])) names = arguments[0];
+        else if (arguments.length > 0) names = Array.prototype.splice(arguments, 0);      // arguments 객체를 배열로 만든다.
+        return new Properties(this, names);             // 호출 객체와 프로퍼티 이름을 담은 객체를 반환한다.
+    }
+
+    // 위 함수를 Object.prototype의 메서드로 설정한다.
+    Object.defineProperty(Object.prototype, "properties", {
+        value: properties, enumerable: false, writable: true, configurable: true
+    });
+
+    // 생성자 함수를 정의한다.
+    function Properties(o, names) {
+        this.o = o;
+        this.names = names;
+    }
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+})();
 
 
 
