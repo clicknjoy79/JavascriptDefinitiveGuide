@@ -1154,7 +1154,7 @@ str_set.foreach(console.log);               // CCC 0 (2) ["CCC", "DDD"]
         var names;
         if (arguments.length === 0) names = Object.getOwnPropertyNames(this);
         else if (arguments.length === 1 && Array.isArray(arguments[0])) names = arguments[0];
-        else if (arguments.length > 0) names = Array.prototype.splice(arguments, 0);      // arguments 객체를 배열로 만든다.
+        else if (arguments.length > 0) names = Array.prototype.splice.call(arguments, 0);      // arguments 객체를 배열로 만든다.
         return new Properties(this, names);             // 호출 객체와 프로퍼티 이름을 담은 객체를 반환한다.
     }
 
@@ -1169,12 +1169,77 @@ str_set.foreach(console.log);               // CCC 0 (2) ["CCC", "DDD"]
         this.names = names;
     }
 
+    // 이 객체가 나타내는 프로퍼티들을 열거되지 않게 만든다.
+    Properties.prototype.hide = function() {
+        var o = this.o, hidden = { enumerable: false };
+        this.names.forEach(function(n) {
+            if (o.hasOwnProperty(n))
+                Object.defineProperty(o, n, hidden);
+        });
+        return this;
+    };
 
+    // 이 객체가 나타내는 프로퍼티들을 읽기 전용으로, 그리고 설정될 수 없도록 만든다.
+    Properties.prototype.freeze = function() {
+        var o = this.o, frozen = { writable: false, configurable: false };
+        this.names.forEach(function(n) {
+            if (o.hasOwnProperty(n))
+                Object.defineProperty(o, n, frozen);
+        });
+        return this;
+    };
 
+    // 프로퍼티 이름과 디스크립터를 매핑하는 객체를 반환한다.
+    Properties.prototype.descriptors = function() {
+        var o = this.o, desc = {};
+        this.names.forEach(function(n) {
+            if (o.hasOwnProperty(n))
+                desc[n] = Object.getOwnPropertyDescriptor(o, n);
+
+        });
+
+        return desc;
+    };
+
+    // 프로퍼티 객체를 문자열로 전환하는 메서드.
+    Properties.prototype.toString = function() {
+        var o = this.o;
+        var lines = this.names.map(nameToString);
+        return "{\n" + lines.join(",\n") + "\n}";
+
+        function nameToString(n) {
+            var s = "", desc = Object.getOwnPropertyDescriptor(o, n);
+            if (!desc) return "nonexistent " + n + ": undefined";
+            if (!desc.configurable) s += "permanent ";      // configurable 속성이 false 인 경우.
+            if ((desc.get && !desc.set) || !desc.writable) s += "readonly ";
+            if (!desc.enumerable) s += "hidden ";
+            if (desc.get || desc.set) s += "accessor " + n;
+            else s += n + ": " + ((typeof desc.value === "function") ? "function" : desc.value);
+
+            return s;
+        }
+    };
+
+    // 마지막으로 이 예제에서 정의한 메서드를 이용하여,
+    // Properties.prototype 의 메서드들(hide, freeze, descriptors, toString)을 열거되지 않게 만든다.
+    Properties.prototype.properties().hide();
 })();
 
+var obj = {x: 1, y: 2, z: 3};
+obj.properties().hide();
+console.log(obj.properties().toString());       // {
+                                                // hidden x: 1,
+                                                // hidden y: 2,
+                                                // hidden z: 3
+                                                // }
+obj.properties().freeze();
 
-
+var obj1 = Object.create({}, obj.properties().descriptors());
+console.log(obj1.properties().toString());      // {
+                                                // permanent readonly hidden x: 1,
+                                                // permanent readonly hidden y: 2,
+                                                // permanent readonly hidden z: 3
+                                                // }
 
 
 
