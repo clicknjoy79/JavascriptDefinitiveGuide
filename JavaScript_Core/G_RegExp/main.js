@@ -97,6 +97,32 @@ console.log(match);                     // ["abc", "b", index: 0, input: "abcabb
 var result = "1,2, 3  ,  4 ,  5, 6   ,7".split(/\s*,\s*/);
 console.log(result);            //  ["1", "2", "3", "4", "5", "6", "7"]
 
+// RegExp
+// 총 5개의 프로퍼티가 있다. source, global, ignoreCase, multiline, lastIndex.
+// global과 lastIndex는 쌍으로 봐야한다.
+// 전역이든 비전역이든 exec는 하나의 매치 결과만을 반환하며, 해당 매치에 대한 전체정보를 제공한다.
+// 이러한 특수한 방식 때문에 exec는 한 문자열에서 모든 매치 결과를 찾으려면 여러번 호출해야 한다.
+var pattern = /Java/g;
+var text = "JavaScript is more fun than Java";
+var result;
+while (result = pattern.exec(text)) {
+    console.log("Matched: '" + result[0] + "'" + " at position " + result.index +
+                    " ;next search begins at " + pattern.lastIndex);
+}
+
+// test 메서드 또한 g 플래그 설정시 exec와 비슷하게 동작한다. => lastIndex 위치부터 검색한다.
+// g 플래그가 없는 경우에는 lastIndex가 항상 0 이다.....
+var pattern = /java/gi;
+console.log(pattern.test("Javascript is more fun than java"));      // true
+console.log(pattern.lastIndex);                                     // 4
+console.log(pattern.test("Javascript is more fun than java"));      // true
+console.log(pattern.lastIndex);                                     // 32
+console.log(pattern.test("Javascript is more fun than java"));      // false
+console.log(pattern.lastIndex);                                     // 0
+console.log(pattern.test("Javascript is more fun than java"));      // true
+console.log(pattern.lastIndex);                                     // 4
+
+
 
 
 
