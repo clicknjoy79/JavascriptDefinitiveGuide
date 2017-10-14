@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        div.window {
+            position: absolute;
+            width: 300px; height: 200px;
+            border: 3px outset gray;
+        }
+
+        div.titlebar {
+            position: absolute;
+            top: 0px; height: 18px;     /*전체 높이는 18픽셀 + 패딩 + 테두리 ==> 25 */
+            width: 290px;               /*전체 넓이는 290픽셀 + 패딩 + 테두리 == > 300*/
+            background-color: #aaa;
+            border-bottom: groove gray 2px;
+            padding: 3px 5px 2px 5px;
+            font: bold 11pt sans-serif;
+        }
+
+        div.content {
+            position: absolute;
+            top: 25px;
+            height: 165px;
+            width: 290px;
+            padding: 5px;
+            overflow: auto;
+            background-color: #fff;
+        }
+
+        div.translucent {
+            opacity: .75;
+            filter: alpha(opacity=75);
+        }
+
+    </style>
+</head>
+<body>
+<div class="window" style="left: 10px; top: 10px; z-index: 10;">
+    <div class="titlebar">Test Window</div>
+    <div class="content">
+        1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>0<br>
+        1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>0<br>
+    </div>
+</div>
+
+<div class="window" style="left: 75px; top: 110px; z-index: 20;">
+    <div class="titlebar">Another Window</div>
+    <div class="content translucent" style="background-color: #ccc; font-weight: bold;">
+        This is another window. Its <tt>z-index</tt> puts it on top of the
+        other one.
+        CSS styles make its content area translucent, in browsers that
+        support that.
+    </div>
+</div>
+<!--자바스크립트의 element.style은 CSSStyleDeclaration 객체를 의미하며
+요소의 '인라인 스타일'을 반영한다. CSS 파일에 정의된 것은 반영되지 않는다.-->
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

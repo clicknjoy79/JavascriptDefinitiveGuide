@@ -1,0 +1,93 @@
+<!--브라우저에 한번 띄워보는 것으로 족하다-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style type="text/css">
+        /*머릿글을 파란색 이탤릭체로 지정한다.*/
+        h1, h2 { color: blue; font-style: italic }
+
+        .warning {
+            font-weight: bold;
+            font-size: 150%;
+            margin: 0 1in 0 1in;    /*위 오른쪽 아래 왼쪽 ; in은 인치를 의미한다.*/
+            background-color: yellow;
+            border: solid red 8px;
+            padding: 10px;
+        }
+
+        .warning h1, .warning h2 { text-align: center }
+
+        #special {
+            text-align: center;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+<h1>Cascading Style Sheets Demo</h1>
+
+<div class="warning">
+    <h2>Warning</h2>
+    This is a warning! Notice how it grabs
+    your attention with its bold text and
+    bright colors. Also notice that the
+    heading is centered and in blue italics.
+</div>
+
+<p id="special">
+    this paragraph is centered<br>
+    and, appears in uppercase letters.<br>
+    <span style="text-transform: none">
+        Here we explicitly use an inline style to override the uppercase letters.
+    </span>
+</p>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+baseball
+<form>
+    <input type="text" value="football"/>
+</form>
+
+<!--간단한 텍스트 에디터-->
+<div style="width: 100px; height: 100px; border: 1px solid black;" contenteditable>Click to Edit</div>
+<input type="button" value="bold" onclick="document.execCommand('bold', false, null)";/>
+<input type="button" value="italic" onclick="document.execCommand('italic', false, null)";/>
+<!--인라인 스크립트에서 this는 해당 태그를 가리킨다-->
+<input type="button" value="makeLink" onclick="createLink(this)";/>
+
+
+<!--아이 프레임을 텍스트 에디터로 쓸 수도 있다.-->
+<br/>
+<iframe id="editor" src="about:blank"></iframe><br/>
+<input type="button" value="bold" onclick="document.getElementById('editor').contentDocument.execCommand('bold', false, null)";/>
+<input type="button" value="italic" onclick="document.getElementById('editor').contentDocument.execCommand('italic', false, null)";/>
+
+
+<script src="main.js"></script>
+</body>
+</html>

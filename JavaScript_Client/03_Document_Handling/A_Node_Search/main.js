@@ -121,6 +121,258 @@ function insertAt(parent, child, n) {
 }
 
 
+/**
+ * 테이블 열 정렬.
+ * 각 행의 n 번째 열의 값을 기준으로 지정한 테이블의 첫 번째 <tbody>의 행들을 정렬한다.
+ * 정렬 기준 함수가 있는 경우 사용하며 없으면 알파벳 순으로 정렬한다.
+ */
+function sortrows(table, n, comparator) {
+    var tbody = table.tBodies[0];       // 첫 번째 tbody: 존재한다고 가정하자.
+    var rows = tbody.getElementsByTagName("tr");
+    rows = Array.prototype.slice.call(rows, 0);     // rows를 배열로 만든다.
+
+    // n 번째 td 요소를 기준으로 행들을 정렬한다.
+    rows.sort(function(row1, row2) {
+        var cell1 = row1.getElementsByTagName("td")[n];         // n 번째 td 요소(정확히는 인덱스가 n)
+        var cell2 = row2.getElementsByTagName("td")[n];
+        var val1 = cell1.textContent || cell1.innerText;
+        var val2 = cell2.textContent || cell2.innerText;
+
+        if (comparator) return comparator(val1, val2);
+
+        if (val1 < val2) return -1;
+        else if (val1 > val2) return 1;
+        else return 0;
+    });
+
+    // 정렬된 행들을 테이블에 삽입한다.
+    // 이 때 행들이 이미 테이블에 존재하므로 새로 삽입되는 것이 아니라 위치만 이동된다.(중요)
+    for (var i = 0; i < rows.length; i++)
+        tbody.appendChild(rows[i]);
+}
+
+/**
+ * 테이블에서 th 요소를 클릭하면 테이블이 정렬되도록 한다.
+ */
+function makeSortable(table) {
+    var headers = table.getElementsByTagName("th");
+    for (var i = 0; i < headers.length; i++) {
+        (function(n){
+            headers[i].onclick = function() { sortrows(table, n); };
+        })(i);
+    }
+}
+makeSortable(document.getElementsByTagName("table")[0]);
+
+/**
+ * n 노드를 <b> 태그로 바꾸고 <b> 태그의 자식노드로 n을 만든다.
+ */
+function embolden(n) {
+    // 파라미터가 노드가 아닌 문자열이면 id로 취급한다.
+    if (typeof n === "string") n = document.getElementById(n);
+    var parent = n.parentNode;
+    var b = document.createElement("b");
+    parent.replaceChild(b, n);
+    b.appendChild(n);
+}
+var span = document.createElement("span");
+document.body.appendChild(span);
+span.appendChild(document.createTextNode("Hello H3"));
+embolden(span);
+
+/**
+ * innerHTML 을 이용한 outerHTML 구현
+ */
+(function () {
+    delete Element.prototype.outerHTML;
+    // outerHTML 이 있으면 아무것도 하지 않는다.
+    if (document.createElement("div").outerHTML) return;
+    // this가 참조하는 Element의 outerHTML을 반환한다.
+    function outerHTMLGetter() {
+        var container = document.createElement("div");  // 컨테이너 생성
+        container.appenChild(this.cloneNode(true));     // Element를 복사해서(deep copy) 컨테이너에 추가.
+        return container.innerHTML;
+    }
+
+    // 파라미터로 해당 Element의 outerHTML을 지정한다.
+    function outerHTMLSetter(value) {
+        // 컨테이너를 생성하고 파라미터로 html을 세팅한다.
+        var container = document.createElement("div");
+        container.innerHTML = value;
+        // 컨테이너 내부 요소를 부모노드로 이동 시킨다.
+        // insertBefore() 는 복사해서 이동시키는게 아니라 요소를 원래의 위치에서 삭제하고 이동시킨다.(중요)
+        while (container.firstChild)
+            this.parentNode.insertBefore(container.firstChild, this);   //
+        // 교체된 노드는 제거한다.
+        this.parentNode.removeChild(this);
+    }
+
+    // 모든 객체의 outerHTML 프로퍼티의 getter, setter 로 두 함수를 사용한다.
+    if (Object.defineProperty) {        // ES5의 Object.defineProperty가 존재하는 경우.
+        Object.defineProperty(Element.prototype, "outerHTML", {
+            get: outerHTMLGetter,
+            set: outerHTMLSetter,
+            enumerable: false, configurable: true
+        });
+    } else {
+        Element.prototype.__defineGetter__("outerHTML", outerHTMLGetter);   // 접근자 프로퍼티를 정의
+        Element.prototype.__defineSetter__("outerHTML", outerHTMLSetter);
+    }
+})();
+document.getElementById("para").outerHTML = "<p>하느님이 보우하사</p>";
+
+/**
+ * DocumentFragment는 다른 노드를 담는 임시 컨테이너이다.
+ * 부모 노드는 존재하지 않으며(null) 자식노드는 가질 수 있다.
+ * 노드 n의 자식 노드들을 역순 정렬한다.
+ */
+function reverse(n) {
+    // 임시 컨테이너로 사용할 DocumentFragment 객체.
+    var container = document.createDocumentFragment();
+    // n의 자식 객체를 역순으로 컨테이너에 담는다.
+    // 주의할 것은 컨테이너에 담으면 n에서는 비워진다.(중요)
+    while (n.lastChild)
+        container.appendChild(n.lastChild);     // appendChild():  노드를 이동 + 추가하는 의미이다.
+    n.appendChild(container);       // 컨테이너의 자식 노드들을 이동시킨다.
+}
+reverse(document.getElementById("list"));
+
+/**
+ * innerHTML을 이용한 insertAdjacentHTML() 구현.
+ * Insert.before(), Insert.after(), Insert.atStart(), Insert.atEnd()를 구현해서 이를 이용한다.
+ */
+var Insert = (function() {
+    // 요소에 네이티브 insertAdjacentHTML() 메서드가 있다면
+    // 네 가지 삽입 함수에 이 메서드를 이용한다.
+
+    Element.prototype.insertAdjacentHTML = undefined;   // 구현되지 않도록 강제한다.
+
+    if (document.createElement("div").insertAdjacentHTML)
+        return {
+            before: function(e, h) { e.insertAdjacentHTML("beforebegin", h); },
+            after: function(e, h) { e.insertAdjacentHTML("afterend", h); },
+            atStart: function(e, h) { e.insertAdjacentHTML("afterbegin", h); },
+            atEnd: function(e, h) { e.insertAdjacentHTML("beforeend", h); }
+        };
+
+    // 네이티브 insertAdjacentHTML 메서드가 없다면
+    // 네 가지 삽입 함수를 구현하고 이것을 이용해 메서드를 구현한다.
+
+    // 먼저 HTML 을 파싱해서 DocumentFragment 객체를 만드는 유틸리티 메서드를 정의한다.
+    function fragment(html) {
+        var elt = document.createElement("div");        // 빈 요소 생성.
+        var frag = document.createDocumentFragment();   // 임시 컨테이너 생성.
+        elt.innerHTML = html;
+
+        while (elt.firstChild)              // 자식 노드들을 DocumentFragment로 이동.
+            frag.appendChild(elt.firstChild);
+        return frag;                    // frag 반환.
+    }
+
+    var Insert = {
+        before: function(elt, html) {
+            elt.parentNode.insertBefore(fragment(html), elt);
+        },
+        after: function(elt, html) {
+            elt.parentNode.insertBefore(fragment(html), elt.nextSibling);
+        },
+        atStart: function(elt, html) {
+            elt.insertBefore(fragment(html), elt.firstChild);
+        },
+        atEnd: function(elt, html) {
+            elt.appendChild(fragment(html));
+        }
+    };
+
+    // 앞의 함수를 이용해서 insertAdjacentHTML 메서드를 구현한다.
+    Element.prototype.insertAdjacentHTML = function(pos, html) {
+        switch(pos) {
+            case "beforebegin": return Insert.before(this, html);
+            case "afterend":    return Insert.after(this, html);
+            case "afterbegin":  return Insert.atStart(this, html);
+            case "beforeend":   return Insert.atEnd(this, html);
+        }
+    };
+
+    return Insert;          // 리턴하지 않고 끝내도 상관은 없을 듯....
+})();
+
+document.getElementById("para2").insertAdjacentHTML("beforebegin", "<h3>beforebegin</h3>");
+document.getElementById("para2").insertAdjacentHTML("afterend", "<h3>afterend</h3>");
+document.getElementById("para2").insertAdjacentHTML("afterbegin", "<h3>afterbegin</h3>");
+document.getElementById("para2").insertAdjacentHTML("beforeend", "<h3>beforeend</h3>");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
