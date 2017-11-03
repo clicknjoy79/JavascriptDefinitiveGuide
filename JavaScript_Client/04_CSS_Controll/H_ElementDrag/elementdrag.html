@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<!--드래그할 요소-->
+<div style="position: absolute; left: 100px; top: 100px; width: 250px; background-color: white; border: solid black;">
+    <!--드래그할 제목 표시줄. onmousedown 속성을 주목-->
+    <div style="background-color: gray; border-bottom: dotted black; padding: 3px; font-family: sans-serif;
+                font-weight: bold;" onmousedown="drag(this.parentNode, event);">
+        Drag Me <!--제목 표시줄 -->
+    </div>
+    <!--드래그 가능한 요소의 내용-->
+    <p>This is a test.Testing, testing, testing.</p><p>Test</p><p>Test</p>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
