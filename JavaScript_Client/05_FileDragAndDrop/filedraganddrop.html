@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        #drop_zone {
+            border: 5px solid blue;
+            width: 200px;
+            height: 100px;
+        }
+    </style>
+</head>
+<body>
+<!--dragend 이벤트는 dragsource에서 발생하므로 여기서는 발생하지 않는다. 예제에 문제가 있는 듯-->
+<div id="drop_zone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);" ondragend="dragend_handler(event);">
+    <strong>Drag one or more files to this Drop Zone</strong>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
